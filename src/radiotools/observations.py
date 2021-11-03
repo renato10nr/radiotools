@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Observations module definitions.
-
+"""
 This module creates the classes and method needed for the definition of observations of a transit radiotelescope, such as Uirapuru. It provides methods for obtaining celestial coordinates of planned or executed observations and interesting celestial objects alongside.
 
 Interesting celestial objects are local objets with high proper motion (sun, moon, planets), radiosources A, pulsars and sources from nvss catalog. The set of sources is customizable with class methods or module functions.
@@ -8,6 +7,7 @@ Interesting celestial objects are local objets with high proper motion (sun, moo
 Functionality to read sources from files or to access SIMBAD and VIZIER catalog servives are provided.
 
 As interesting celestial objects are GNSS satellites since the L5 signal is in band for uirapuru and most of other telescopes as well. Methods are provided to get information about satellites positioning.
+
 """
 # General Imports
 import sys
@@ -83,18 +83,22 @@ WCS_MOL.wcs.ctype = ["RA---MOL", "DEC--MOL"]
 # main class definition.
 # --------------------
 class Observations:
-    """Create an observation object for a given instrument, show pointings in the sky (transit telescopes only), celestial interesting objects and access data if available.
+    """Short summary.
 
     Args:
-        t_start (datetime): beginning of observation in local time. `t_start`. Defaults to None.
-        duration (quantity): `duration` of the planned observations in time units. Defaults to None.
-        instrument (Instrument): `instrument` instance. Defaults to None.
+        t_start (datetime): beginning of observation `t_start`. Defaults to None.
+        duration (time quantity): `duration` of observation in time quantity. Defaults to None.
+        instrument (Instrument): object of class `instrument`. Defaults to None.
+        planning (type): this is a stub `planning`. Defaults to False.
 
     Attributes:
-        eph (skyfield): access to ephemerides `eph`.
-        earth (skyfield): skyfield object `earth`.
-        timevector (timescale): `timevector` as a timescale skyfield object.
-        instrument (Instrument).
+        _load (type): Skyfield loader `_load`.
+        _eph (type): Skyfield ephemeris data `_eph`.
+        _earth (type): Skyfield ephemeris object `_earth`.
+        timevector (timescale): Skyfield timescale vector object `timevector`.
+        pointings (SkyCoord): positions of `pointings` for instrument in given times as astropy Skycoord object.
+        local_objects (type): list of `local_objects` to keep track. Local objects have high peculiar velocities.
+        _ts (type): Skyfield timescale object `_ts`.
 
     """
 
@@ -162,7 +166,9 @@ class Observations:
         delta = delta.to(u.s).value
         steps = duration.to(u.s).value / delta
         vec = np.arange(steps)
-        timelist = Time(self.t_start, scale='utc') + np.arange(steps)*TimeDelta(delta, format='sec', scale='ut1')
+        # Astropy timevector is fast to create.
+        timelist = Time(self.t_start, scale='utc') + np.arange(steps)*TimeDelta(delta, format='sec', scale='tai')
+        # Convert to skyfield timescale for later use.
         timevector = self._ts.from_astropy(timelist)
         if inplace:
             self.timevector = timevector
@@ -248,6 +254,7 @@ class Observations:
         return df
 
     def get_star_cone(self, objects = None, CONE = True):
+        """Populate dataframe with distant objects in beam."""
         # --------------------
         # Generate positions in dataframe.
         # --------------------
@@ -262,7 +269,7 @@ class Observations:
                 ra = (star.RA*u.deg).to(u.hourangle).value
                 dec = star.DEC
                 celestial = api.Star(ra_hours=ra, dec_degrees=dec)
-                pos = observer.at(self.timevector).observe(celestial)
+                pos = observer.at(timevector).observe(celestial)
                 ra, dec, dist = pos.radec()
                 cone = observer.at(timevector).from_altaz(alt_degrees=self.instrument.Alt, az_degrees=self.instrument.Az).separation_from(pos)
                 df = pd.DataFrame(zip(timevector.tai, ra._degrees, dec.degrees, cone.degrees, dist.km),
@@ -276,23 +283,8 @@ class Observations:
             df = pd.DataFrame()
         return df
 
-    def get_satellites(self, TLE = None, timevector = None, delta = 5 * u.min, CONE = True, fwhm = None):
-        """Get positions of GNSS satellites during observation.
-
-        Args:
-            TLE (type): Description of parameter `TLE`. Defaults to None.
-            timevector (type): Description of parameter `timevector`. Defaults to None.
-            delta (type): observation time interval `delta`. Defaults to 5 * u.min.
-            CONE (type): boolean filter data inside cone of observation `CONE`. Defaults to True.
-            fwhm (type): Description of parameter `fwhm`. Defaults to None.
-
-        Returns:
-            type: dataframe with RA DEC.
-        """
-        if timevector is None:
-            # Define fine grained timevector
-            duration = TimeDelta(self.timevector[-1] - self.timevector[0])
-            timevector = self.make_timevector(duration=duration, delta=delta, inplace=False)
+    def get_satellites(self, TLE = None, CONE = True):
+        """Get positions of GNSS satellites during observation."""
         if TLE is None:
             TLE = TLE_urls
         # --------------------
@@ -306,11 +298,10 @@ class Observations:
         # Generate positions in dataframe.
         # --------------------
         if self.instrument is not None:
-            if timevector is None:
-                timevector = self.timevector
+            timevector = self.timevector
+            # TLE are geocentric, observer should also be geocentric.
             observer = self.instrument.observatory
-            if fwhm is None:
-                fwhm = self.instrument.fwhm
+            fwhm = self.instrument.fwhm
             objects = []
             for satellite in gnss_all:
                 pos = (satellite - observer).at(timevector)
@@ -329,7 +320,7 @@ class Observations:
         return df
 
     def get_all_beam(self, query_string_nvss = "S1400>10000", query_string_psr = "S1400>10"):
-        # refazer a função
+        """Collect information from all celestials of interest in a single dataframe."""
         df_01 = self.get_local_objects()
         df_02 = self.get_satellites()
         df_03 = self.get_star_cone(load_nvss_catalog().query(query_string_nvss))
@@ -345,21 +336,8 @@ class Observations:
         df = pd.concat(dfcat)
         return df
 
-    def get_events():
-        pass
-
     def _celestial_bbox(self):
-        """Calculate bounding box for astropy coord.Skycord object in sky coordinates.
-
-        Args:
-            coords (type): SkyCoord object `coords`.
-            ra_offset (type): right ascension offset for bbox `ra_offset`. Defaults to 15.
-            dec_offset (type): declination offset for bbox `dec_offset`. Defaults to 5.
-
-        Returns:
-            type: List with Top-Left and Bottom-Right points.
-
-        """
+        """Calculate bounding box for astropy coord.Skycord object in sky coordinates."""
         skycoords = self.pointings
         fwhm = self.instrument.fwhm
         bbox_center = coord.Angle(np.ceil(self.pointings[self.timevector.shape[0]//2].ra.hour)*15, unit = "deg").wrap_at(180*u.deg)
@@ -391,16 +369,13 @@ class Observations:
         return xlim, ylim
 
     def make_query_mask(self):
-        bbox = self._celestial_bbox()
-        bottom_left = bbox[0]
-        top_right = bbox[1]
-        ra_min, dec_min = bottom_left.ra.degree, bottom_left.dec.degree
-        ra_max, dec_max = top_right.ra.degree, top_right.dec.degree
-        #mask = "(RA >= {:.5f}) & (RA <= {:.5f}) & (DEC <= {:.5f}) & (DEC >={:.5f})".format(ra_max, ra_min, dec_max, dec_min)
+        """Check if this is still needed"""
         mask = "(DEC <= {:.5f}) & (DEC >={:.5f})".format(dec_max, dec_min)
         return mask
 
+
     def _make_axes(self, ra_lim = None, dec_lim = None,  galactic = None, projection = "CAR"):
+        """Determine world coordinate axes to use in plot_pointings and set some other nice features."""
         # define bounding box in celestial coordinates
         bbox = self._celestial_bbox()
         # define central hourangle
@@ -497,12 +472,8 @@ class Observations:
             return None
         return artist
 
-    def plot_observation(self, *args, **kwargs):
-        pass
-
     def load_observation(self, calibrate = True):
-        """Check existent datafiles and retrieve information for observation as given parameters.
-        """
+        """Check existent datafiles and retrieve information for observation as given parameters."""
         # Read filenames and parse timestamps
         t_start = pd.to_datetime(self.timevector[0].utc_datetime())
         t_end = pd.to_datetime(self.timevector[-1].utc_datetime())
@@ -520,6 +491,7 @@ class Observations:
         return df
 
     def filter_data(self, df, freqs = None, duration = None, sampling = None):
+        """Filter data from bachend in frequency, duration or sampling."""
         begin = df.index[0]
         end = df.index[-1]
         if freqs is not None:
@@ -540,6 +512,7 @@ class Observations:
         return df
 
     def plot_waterfall(self, df = None, freqs = None, duration = None, sampling = None):
+        """Plot waterfall."""
         freqs = freqs
         duration = duration
         sampling = sampling
@@ -584,6 +557,7 @@ class Observations:
         return fig
 
     def beam_on_sky(self):
+        """Collect all celestials in one dataframe."""
         pulsares_csv = obs.load_pulsares()
         radiosources_csv = obs.load_radiosources()
         nvss_csv = obs.load_nvss_catalog()
@@ -604,6 +578,7 @@ class Observations:
         return df
 
     def plot_timeseries(self, df_data, df_sky):
+        """Plot waterfall and upper panel with celestials."""
         df_fit = df_data
         # Set up the axes with gridspec
         freqs = df_fit.columns
@@ -659,6 +634,7 @@ class Observations:
         return fig
 
     def _get_altaz_from_radec(self, observer, df):
+        """Get AltAz to use with pandas apply."""
         try:
             name = df["NAME"]
         except KeyError as e:
@@ -711,6 +687,7 @@ class Observations:
         return ax
 
     def plot_galaxy_altaz(self, size = 24, ax = None, utc = True, markersize = 5 ):
+        """Plot galactic plane with size markers."""
         timevector = self.make_timevector(inplace = False)
         TIME = pd.DataFrame({"TIME":timevector.tai})
         TIME["NAME"] = "galactic plane"
@@ -779,7 +756,6 @@ def load_radiosources(filename = "../data/auxiliary/radiosources.csv"):
         df = fetch_radiosources(radiosources)
     return df
 
-
 def fetch_nvss_catalogs(filename = "../data/auxiliary/nvss_radiosources.csv", DEC_FILTER = "<10 && >-30", S1400_mjy = ">100", query = "DEC >-20 & DEC < 10 & S1400>100"):
     """Fetch astroquery vizier nvss catalog.
 
@@ -803,7 +779,6 @@ def fetch_nvss_catalogs(filename = "../data/auxiliary/nvss_radiosources.csv", DE
     except IOError as err:
         print(err + "\n arquivo não foi salvo em disco")
     return df
-
 
 def load_nvss_catalog(filename = "../data/auxiliary/nvss_radiosources.csv", **kwargs):
     """Load previously saved data from NVSS catalog. If file does not exist, fetch data from vizier with kwargs.
@@ -983,18 +958,3 @@ def get_galactic_equator(size = 720):
     b = np.zeros(size)
     gal_plane = coord.SkyCoord(l,b, unit=u.deg, frame="galactic")
     return gal_plane
-
-def get_ecliptic(size=720):
-    """Return data to plot ecliptic plane from the barycentric mean ecliptic coordinate system.
-
-    Args:
-        size (type): Number of points to plot `size`. Defaults to 720.
-
-    Returns:
-        type: Skycoord object.
-
-    """
-    l = np.linspace(0,360,size)
-    b = np.zeros(size)
-    ecl_plane = coord.SkyCoord(l, b, unit=u.deg, frame='barycentricmeanecliptic')
-    return ecl_plane

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-"""backend module definitions.
-
+"""
 This module creates the classes and methods needed for the definition of a backend attached to instrument.
 
 `Backend`is an abstract class with properties and abstract methods that need to be overloaded. It should not be instantiated.
@@ -335,15 +334,13 @@ class CallistoSpectrometer(Backend):
         return self
 
 
-    def load_data(self, filenames = None):
+    def load_data(self, filenames = None, interval = '0.5S'):
         """Load the list of `filenames` and returns the approriate dataframe."""
-        timestamp = []
         hdu_data = []
         timevector = []
         for file in filenames:
             with fits.open(file) as hdul:
                 stamp = pd.to_datetime(hdul[0].header['DATE-OBS'] + "T" + hdul[0].header['TIME-OBS'])
-                timestamp.append(stamp)
                 data = hdul[0].data
                 hdu_data.append(data)
                 freqs = hdul[1].data[0][1]
@@ -362,7 +359,7 @@ class CallistoSpectrometer(Backend):
         df = df[sorted(df.columns.tolist())]
         # That is important to consider properly the missing data.
         # Set periodicity as Callisto two samples per second. This should refer to frequency.cfg file since there are other modes of operation in callisto.
-        df = df.asfreq(freq='0.5S')
+        df = df.asfreq(freq=interval)
         return df
 
 

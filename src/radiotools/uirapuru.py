@@ -1,15 +1,7 @@
 # -*- coding: utf-8 -*-
 """Uirapuru Module.
 
-This module creates the classed and method needed for the definition of a instrument as a **radiotelescope**.
-
-Example:
-    Two instruments are predefined as instances of this class. **Uirapuru** and **Callisto**.
-
-Todo:
-    * Tudo
-    * Depois de tudo
-
+This module provides a predefined Instrument. Uirapuru is a transit telescope.
 """
 from .backend import CallistoSpectrometer
 from .instrument import Instrument

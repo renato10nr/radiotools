@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
-"""Instrument module definitions.
-
-This module creates the classed and method needed for the definition of a instrument as a **radiotelescope**.
-
-Example:
-    Two instruments are predefined as instances of this class. **Uirapuru** and **Callisto**.
 """
+This module provides the class `Instrument`, which holds informations necessary to identify the radiotelescope in use.
+
+The class has properties like a dictionary and very few methods. An `Instrument` is something in a place, with a poiting, connected to a backend.
+
+"""
+#------------------
+# Imports
+#------------------
 import os
 import sys
 from astropy import units as u
@@ -15,7 +17,8 @@ from pytz import timezone
 from skyfield  import api
 from skyfield.api import load
 from skyfield.api import Loader
-from .backend import CallistoSpectrometer
+from .backend import Backend
+#------------------
 
 class Instrument:
     """This is a radiotelescope."""
@@ -60,7 +63,6 @@ class Instrument:
         """Set the path of the instrument data files."""
         self._path = path
 
-
     @property
     def verbose(self):
         """Return verbosity level. Boolean."""
@@ -89,7 +91,28 @@ class Instrument:
     @fwhm.setter
     def fwhm(self, fwhm):
         """Set FWHM."""
-        self._dwhm = fwhm
+        self._fwhm = fwhm
+
+    @property
+    def Alt(self):
+        """Return Altitude."""
+        return self._Alt
+
+    @Alt.setter
+    def Alt(self, Alt):
+        """Set Altitude."""
+        self._Alt = Alt
+
+    @property
+    def Az(self):
+        """Return Azimuth."""
+        return self._Az
+
+    @Az.setter
+    def Az(self, Az):
+        """Set Azimuth."""
+        self._Az = Az
+
 
     def set_location(self, **kwargs):
         """Determine location of experiment as Astropy EarthLocation object. If not specified, values from class instante defined in self.init are used.
@@ -116,7 +139,7 @@ class Instrument:
 
 
     def set_observatory(self, **kwargs):
-        """Determine location of experiment as Topos Skyfield object. If not specified, values from class instance defined in self.init are used.
+        """Determine location of experiment as Skyfield object. If not specified, values from class instance defined in self.init are used.
 
         Args:
             lon (Angle unit): longitude `lon`.
@@ -139,21 +162,6 @@ class Instrument:
         return self
 
 
-    def set_pointing(self, Alt=None, Az=None):
-        """Set pointing in horizonton coords."""
-        self._Alt = Alt
-        self._Az = Az
-        return self
-
-    @property
-    def Alt(self):
-        """Return Altitude."""
-        return self._Alt
-
-    @property
-    def Az(self):
-        """Return Azimuth."""
-        return self._Az
 
 
 def main():
