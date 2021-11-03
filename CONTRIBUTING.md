@@ -31,14 +31,7 @@ Você pode querer contribuir de várias formas diferentes, algumas delas:
 ## Ambiente sugerido
 
 - Linux Ubuntu >=18.04
-- pacotes: `build-essential gcc-8 g++-8 gfortran nodejs npm git`
-- Editor de código: atom
-     Pacotes:
-     - Hydrogen
-     - docblock-python
-     - minimap
-     - linter-pydocstyle
-- python miniconda 3.8
+- python miniconda 3.9
 
 1. Faça o fork do repositório github.
 2. Siga algum processo razoável para decidir em qual parte contribuir, atendendo as demandas colocadas em ISSUES ou em contato com os desenvolvedores.
@@ -46,18 +39,6 @@ Você pode querer contribuir de várias formas diferentes, algumas delas:
 
 ```bash
 git clone git@github.com:your_name_here/radiotelescope.git
-```
-
-4 Instale [poetry](https://python-poetry.org/docs/)
-
-```bash
-curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
-```
-
-5. Instale as dependências e inicie o ambiente virtual:
-```bash
-# Você deve estar na raiz do pacote
-$ poetry install -E test -E doc -E dev
 ```
 
 7. Crie um `branch` para desenvolvimento local:
@@ -83,28 +64,6 @@ Trabalhe nos seus arquivos e divirta-se.
 ```
 
 8. Submeta um PULL REQUEST pelo GitHub.
-
-
-## Tips
-```
-    $ pytest tests.test_radiotelescope
-```
-
-## Deploying
-
-**Não queremos fazer o deploy com pipy**
-
-A reminder for the maintainers on how to deploy.
-Make sure all your changes are committed (including an entry in HISTORY.md).
-Then run:
-
-```
-$ poetry patch # possible: major / minor / patch
-$ git push
-$ git push --tags
-```
-
-Travis will then deploy to PyPI if tests pass.
 
 ## Usando Git
 

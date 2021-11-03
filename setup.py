@@ -31,7 +31,7 @@ setup(
     packages=find_packages(where='src'),  # Required
     python_requires='>=3.7, <4',
 
-    install_requires=['pytz', 'astropy', 'astroquery', 'skyfield', 'scipy'],
+    install_requires=['astropy', 'astroquery', 'matplotlib', 'numpy', 'pandas', 'pytz', 'scipy', 'skyfield'],
     project_urls={  # Optional
         'Bug Reports': 'https://github.com/lbarosi/radiotools/issues',
         'Source': 'https://github.com/lbarosi/radiotools/',

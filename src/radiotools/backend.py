@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 """backend module definitions.
 
-This module creates the classed and method needed for the definition of a instrument as a **radiotelescope**.
+This module creates the classes and methods needed for the definition of a backend attached to instrument.
+
+`Backend`is an abstract class with properties and abstract methods that need to be overloaded. It should not be instantiated.
+
+`CallistoSpectrometer` is a class derived from Backend with data reading and calibration capabilities.
 
 Example:
-    Two instruments are predefined as instances of this class. **Uirapuru** and **Callisto**.
+    $backend = CallistoSpectrometer(name="MEU_NOME", path="./DIR/DIR/")._get_files_timestamps()._calibrate_slope()
 
 """
 import os
@@ -12,17 +16,47 @@ import sys
 from glob import glob
 import numpy as np
 import pandas as pd
-import scipy.signal
+import scipy.signal  # Used for smoothing in calibration
 from astropy.io import fits
 from astropy.constants import c
 from astropy.constants import k_B
 from abc import ABC, abstractmethod
-
+#------------------
+# Global Constants
+#------------------
 TCOLD =  273.15 + 30
-
-
+#------------------
 class Backend(ABC):
-    """Backends for radiotelescope are abstract. Explicit instantes are callistospectrometer, usrp, rtlsdr."""
+    """Abstract class for backends for radiotelescope.Provides properties and abstract methods.
+
+    Args:
+        name (str): `name`.
+        path (str): `path` where to find data and calibration files.
+        filetype (str): extension for the data files `filetype`.
+        modes (dict): `modes` for data acquisition should reflect code in filename. Modes are expected to hjave keys COLD, WARM, HOT and SKY.
+        nominal_slope (float): `nominal_slope` of logathmic detector in mv/dB.
+        bandwidth (float): `bandwidth` in Hertz. Defaults to None.
+        integration_time (float): `integration_time` in s. Defaults to None.
+        temperature (float): `temperature` to be considered as Tcold, ambient temperature.
+        gain (float): `gain` used to calculate effective area, should be set to 1 if considering RFI detection.
+        DCOLD (float): digits to consider as `DCOLD` measure in pseudocalibration. Defaults to None.
+        DWARM (float): digits to consider as `DWARM` measure in pseudocalibration. Defaults to None.
+        DHOT (float): digits to consider as `DHOT` in pseudocalibration. Defaults to None.
+        ENR_hot (float): excess noise rate of hot source used for calibration `ENR_hot`. Defaults to None.
+        ENR_warm (float): excess noise rate of WARM source used for calibration `ENR_warm`. Defaults to None.
+
+    Attributes:
+        filenames (dataframe): filenames, modes and timestamps stored in data folder. `filenames`.
+        slope (type): mv/dB conversion as a function of frequency. `slope`.
+        NF (type):  reeiver noise figure as a function of frequency. `NF`.
+        last_cal (datetime): date of last calibration of slope `last_cal`.
+        time_cold (datetime): date of last measurements of cold data, should be as close as possible to data to be calibrated. `time_cold`.
+        freqs (array): array of frequencies observed. `freqs`.
+        Dhot (array): Digits of `Dhot` measurement with HOT source.
+        Dwarm (array): Digits of `Dwarm` measurement with WARM source.
+        Dcold (array): Digits of `Dcold` measuremente with COLD source.
+
+    """
 
     def __init__(self,
                 name=None,
@@ -197,43 +231,64 @@ class Backend(ABC):
 
     @abstractmethod
     def _get_files_timestamps(self):
+        """Get files from path and create dataframe with timestamps."""
         pass
 
     @abstractmethod
     def load_data(self, filenames = None):
+        """Get files indicated and concatenate data."""
         pass
 
     @abstractmethod
     def _from_digits_to_mV(self, df=None):
+        """Take data in digits and convert to mV."""
         pass
 
     @abstractmethod
     def _calibrate_slope(self):
+        """Determine conversion from mV to dB."""
         pass
 
     @abstractmethod
     def calibrate(self, data=None, dcold = None):
+        """Convert data from digits to dBm calibrated data."""
         pass
 
-
+#------------------
+#------------------
 class CallistoSpectrometer(Backend):
-    """Short summary."""
+    """CallistoSpectrometer provides 8bit data in FIT files from which is retrived information for timestamos, frequencies and readings. Calibration unit provides HOT, WARM and COLD sources and data are stores in the format NAME_YYMMDD_HHMMSS_CODE.fits.
 
-    def __init__(self,
-                name=None,
-                path=None,
-                filetype = "fit",
-                modes = {"COLD":"04", "WARM":"02", "HOT":"03", "SKY":"01"},
-                nominal_slope = 25.4,
-                bandwidth = 300000,
-                integration_time = 0.001,
-                temperature = TCOLD,
-                gain = 1,
-                DCOLD = 170,
-                DWARM = 185,
-                DHOT = 210,
-                ENR_hot = 15.0,
-                ENR_warm = 5.0):
+    Args:
+        name (str): `name`.
+        path (str): `path` where to find data and calibration files.
+        filetype (str): extension for the data files `filetype`.
+        modes (dict): `modes` for data acquisition should reflect code in filename. Modes are expected to hjave keys COLD, WARM, HOT and SKY.
+        nominal_slope (float): `nominal_slope` of logathmic detector in mv/dB.
+        bandwidth (float): `bandwidth` in Hertz. Defaults to None.
+        integration_time (float): `integration_time` in s. Defaults to None.
+        temperature (float): `temperature` to be considered as Tcold, ambient temperature.
+        gain (float): `gain` used to calculate effective area, should be set to 1 if considering RFI detection.
+        DCOLD (float): digits to consider as `DCOLD` measure in pseudocalibration. Defaults to None.
+        DWARM (float): digits to consider as `DWARM` measure in pseudocalibration. Defaults to None.
+        DHOT (float): digits to consider as `DHOT` in pseudocalibration. Defaults to None.
+        ENR_hot (float): excess noise rate of hot source used for calibration `ENR_hot`. Defaults to None.
+        ENR_warm (float): excess noise rate of WARM source used for calibration `ENR_warm`. Defaults to None.
+
+    Attributes:
+        filenames (dataframe): filenames, modes and timestamps stored in data folder. `filenames`.
+        slope (type): mv/dB conversion as a function of frequency. `slope`.
+        NF (type):  reeiver noise figure as a function of frequency. `NF`.
+        last_cal (datetime): date of last calibration of slope `last_cal`.
+        time_cold (datetime): date of last measurements of cold data, should be as close as possible to data to be calibrated. `time_cold`.
+        freqs (array): array of frequencies observed. `freqs`.
+        Dhot (array): Digits of `Dhot` measurement with HOT source.
+        Dwarm (array): Digits of `Dwarm` measurement with WARM source.
+        Dcold (array): Digits of `Dcold` measuremente with COLD source.
+
+    """
+
+    def __init__(self, name=None, path=None, filetype = "fit", modes = {"COLD":"04", "WARM":"02", "HOT":"03", "SKY":"01"}, nominal_slope = 25.4, bandwidth = 300000, integration_time = 0.001, temperature = TCOLD, gain = 1, DCOLD = 170, DWARM = 185, DHOT = 210, ENR_hot = 15.0, ENR_warm = 5.0):
         """Instantiate and go."""
         self._name = name
         self._path = path
@@ -260,20 +315,22 @@ class CallistoSpectrometer(Backend):
         self.Dcold = None
 
     def _get_files_timestamps(self):
-        """Read all the files in PATH,"""
+        """Read all the files in PATH, populates the property `filenames` as a dataframe with the information for mode, filename and timestamps. It return `self` in order that chaining is possible with this method."""
         path = self.path
         modes = self.modes
         instrument = self.name
         filetype = self.filetype
         # strip info from filenames and store in dataframe.
+        # modes should be a dict with codes present in filenames.
         for mode, value in modes.items():
             filenames = glob(path + instrument + "*_" + value + "." + filetype)
             df = pd.DataFrame({'files': filenames})
             df["mode"] = mode
-        # strip timestamps from filenames
+        # strip timestamps from filenames. join with T ensures isort format compliance.
         df['timestamps'] = df.files.apply(lambda row: "T".join(row.split('/')[-1].split('_')[1:3]))
         # create time index from pandas datetime in utc scale.
         df['timestamps'] = pd.to_datetime(df['timestamps'], format = "%Y%m%dT%H%M%S", utc=True)
+        # Ordering is important if filtering is to be applied in time index.
         self.filenames = df.set_index('timestamps').sort_index()
         return self
 
@@ -299,11 +356,12 @@ class CallistoSpectrometer(Backend):
         data = np.hstack(hdu_data).T
         df = pd.DataFrame(data, columns=freqs, index = times)
         # Discard 10 lowest frequency channels
+        # This should refers to callisto frequency.cfg file.
         df = df.drop(df.iloc[:, [-10, -1]], axis=1)
-        # Reorder freqs
+        # Reorder freqs because FITs have them stored in inverted order.
         df = df[sorted(df.columns.tolist())]
         # That is important to consider properly the missing data.
-        # Set periodicity as Callisto
+        # Set periodicity as Callisto two samples per second. This should refer to frequency.cfg file since there are other modes of operation in callisto.
         df = df.asfreq(freq='0.5S')
         return df
 
@@ -328,9 +386,11 @@ class CallistoSpectrometer(Backend):
                 self.Dhot = np.array(hot_data.median())
                 self.Dwarm = np.array(warm_data.median())
                 slope = _from_digits_to_mV(self.Dhot - self.Dwarm)/10.0
+                # smoothing slope loess style.
                 size = slope.shape[0]
                 windows = 10
                 slope = savgol_filter(slope, 2 * np.floor(size/2/windows) + 1, 2, mode = "nearest")
+                # set the information for time of calibration.
                 last_cal = abs(pd.to_datetime("today") - time_hot).days
                 self.last_cal = last_cal
                 print("Callibrating slope: {:2f} mV/dB \nCalibration is {} days old".format(slope, last_cal))
@@ -347,7 +407,7 @@ class CallistoSpectrometer(Backend):
 
     def calibrate(self, data=None, dcold = None):
         """Calibrate data em dBm"""
-        ##
+        ## This is Christian Monstein calibration for Callisto. From HOT and WARM obtain slope in mv/dB then use Warm and cold for Y factor of the receiver.
         freqs = np.array(data.columns)
         size = freqs.size
         ENR_warm = self.ENR_warm
@@ -375,6 +435,7 @@ class CallistoSpectrometer(Backend):
 
         Ys = pow(10, self._from_digits_to_mV(data - self.Dcold) / self.slope / 10)
         Trfi = Trx * (Ys - 1) + Ys * self.temperature
+        # freqs in fits file are in MHz, need to use Hz here.
         Aeff = self.gain * pow( c/(freqs * 1000000), 2) /(4. * np.pi)
         # power in mW
         S_flux = 1000 * (2. * k_B / np.sqrt(self.bandwidth * self.integration_time)) * Trfi/Aeff

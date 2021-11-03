@@ -1,0 +1,10 @@
+astropy
+astroquery
+jplephem
+matplotlib
+numpy
+pandas
+pyerfa
+pytz
+scipy
+skyfield
